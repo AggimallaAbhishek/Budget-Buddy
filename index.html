@@ -153,9 +153,31 @@
     </div>
 
     <script type="module">
+        // Define a fallback configuration using the user-provided details
+        const FALLBACK_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyC0dGDNnGf34AAv-TRXX7Ldrae1X8HG6Aw",
+            authDomain: "budgetbuddy-551ff.firebaseapp.com",
+            projectId: "budgetbuddy-551ff",
+            storageBucket: "budgetbuddy-551ff.firebasestorage.app",
+            messagingSenderId: "201578069546",
+            appId: "1:201578069546:web:092409a04136dbd67e4d53",
+            measurementId: "G-XST7WHDH11"
+        };
+        
         // Global Firebase variables provided by the Canvas environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        let canvasFirebaseConfig = null;
+        try {
+            // Attempt to parse the environment variable config
+            canvasFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        } catch (e) {
+            console.error("Error parsing __firebase_config:", e);
+        }
+        
+        // Use environment config if available, otherwise use the provided fallback config
+        const firebaseConfig = canvasFirebaseConfig || FALLBACK_FIREBASE_CONFIG;
+        
+        // Use projectId as fallback for appId, which is required for firestore paths
+        const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
         // Firebase Imports
@@ -182,15 +204,10 @@
          * Initializes Firebase and authenticates the user.
          */
         async function initializeFirebase() {
-            if (!firebaseConfig) {
-                authStatusElement.innerHTML = `<span class="text-red-600">ERROR: Firebase configuration is missing. Cannot proceed.</span>`;
-                loadingMessage.classList.add('hidden');
-                return;
-            }
-
             loadingMessage.classList.remove('hidden');
 
             try {
+                // firebaseConfig is guaranteed to be set now (either via environment or fallback)
                 app = initializeApp(firebaseConfig);
                 auth = getAuth(app);
                 db = getFirestore(app);
