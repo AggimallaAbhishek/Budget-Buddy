@@ -404,12 +404,12 @@ function renderTransactions(transactions) {
                         <span class="material-symbols-outlined text-[18px]">${icon}</span>
                     </div>
                     <div>
-                        <p class="text-sm font-bold text-primary">${tx.description}</p>
+                        <p class="text-sm font-bold text-primary dark:text-emerald-100">${tx.description}</p>
                     </div>
                 </div>
             </td>
             <td class="px-6 py-4">${categoryBadge}</td>
-            <td class="px-6 py-4 text-sm text-primary/60 font-medium">${dateFormatted}</td>
+            <td class="px-6 py-4 text-sm text-primary/60 dark:text-slate-400 font-medium">${dateFormatted}</td>
             <td class="px-6 py-4">${statusBadge}</td>
             <td class="px-6 py-4 text-right font-bold ${amountColor}">${sign}${amountFormatted}</td>
              <td class="px-6 py-4 text-right">
@@ -474,7 +474,7 @@ function renderPieChart(totalIncome, totalExpenses) {
     svg.append("text")
         .attr("text-anchor", "middle")
         .attr("dy", "0.3em")
-        .attr("class", "text-sm font-bold fill-current text-primary")
+        .attr("class", "text-sm font-bold fill-current text-primary dark:text-emerald-400")
         .text("Net");
 
     // Add legend
@@ -485,9 +485,9 @@ function renderPieChart(totalIncome, totalExpenses) {
             item.innerHTML = `
                 <div class="flex items-center gap-2">
                     <span class="w-3 h-3 rounded-full" style="background-color: ${d.color}"></span>
-                    <span class="text-primary/70">${d.label}</span>
+                    <span class="text-primary/70 dark:text-slate-300">${d.label}</span>
                 </div>
-                <span class="font-bold text-primary">${formatCurrency(d.value)}</span>
+                <span class="font-bold text-primary dark:text-emerald-100">${formatCurrency(d.value)}</span>
             `;
             legendContainer.appendChild(item);
         });

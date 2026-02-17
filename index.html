@@ -46,7 +46,8 @@
     </style>
 </head>
 
-<body class="bg-background-light dark:bg-background-dark text-slate-900 font-display transition-colors duration-300">
+<body
+    class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display transition-colors duration-300">
     <!-- Global Background Grid -->
     <div class="fixed inset-0 z-0 opacity-[0.04] pointer-events-none">
         <svg height="100%" width="100%" xmlns="http://www.w3.org/2000/svg">
@@ -119,7 +120,7 @@
         <div class="layout-container flex h-full grow flex-col">
             <!-- Top Navigation Bar -->
             <header
-                class="flex items-center justify-between whitespace-nowrap border-b border-solid border-primary/10 bg-white px-6 md:px-10 py-3 sticky top-0 z-50">
+                class="flex items-center justify-between whitespace-nowrap border-b border-solid border-primary/10 bg-white dark:bg-background-dark/50 px-6 md:px-10 py-3 sticky top-0 z-50 transition-colors">
                 <div class="flex items-center gap-8">
                     <div class="flex items-center gap-3 text-primary">
                         <div class="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
@@ -172,7 +173,8 @@
                 <!-- Summary Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- Balance -->
-                    <div class="flex flex-col gap-4 rounded-xl p-6 bg-white border border-primary/5 shadow-sm">
+                    <div
+                        class="flex flex-col gap-4 rounded-xl p-6 bg-white dark:bg-[#1a2c26] border border-primary/5 dark:border-white/10 shadow-sm transition-colors">
                         <div class="flex items-center justify-between">
                             <div
                                 class="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
@@ -191,7 +193,8 @@
                     </div>
 
                     <!-- Income -->
-                    <div class="flex flex-col gap-4 rounded-xl p-6 bg-white border border-primary/5 shadow-sm">
+                    <div
+                        class="flex flex-col gap-4 rounded-xl p-6 bg-white dark:bg-[#1a2c26] border border-primary/5 dark:border-white/10 shadow-sm transition-colors">
                         <div class="flex items-center justify-between">
                             <div
                                 class="size-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
@@ -207,7 +210,8 @@
                     </div>
 
                     <!-- Expenses -->
-                    <div class="flex flex-col gap-4 rounded-xl p-6 bg-white border border-primary/5 shadow-sm">
+                    <div
+                        class="flex flex-col gap-4 rounded-xl p-6 bg-white dark:bg-[#1a2c26] border border-primary/5 dark:border-white/10 shadow-sm transition-colors">
                         <div class="flex items-center justify-between">
                             <div
                                 class="size-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-700">
@@ -225,8 +229,9 @@
                 <!-- Charts & Analytics -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <!-- Expense Breakdown (Using D3 Pie Chart here instead) -->
-                    <div class="lg:col-span-1 rounded-xl bg-white border border-primary/5 p-6 shadow-sm">
-                        <h3 class="text-lg font-bold text-primary mb-6">Expense Breakdown</h3>
+                    <div
+                        class="lg:col-span-1 rounded-xl bg-white dark:bg-[#1a2c26] border border-primary/5 dark:border-white/10 p-6 shadow-sm transition-colors">
+                        <h3 class="text-lg font-bold text-primary dark:text-emerald-400 mb-6">Expense Breakdown</h3>
                         <!-- We will reuse the D3 Pie Chart logic here -->
                         <div id="pie-chart" class="flex justify-center items-center w-full min-h-[250px]"></div>
                         <!-- Legend container -->
@@ -234,9 +239,10 @@
                     </div>
 
                     <!-- Trends (Placeholder for now, or just the transactions list for now) -->
-                    <div class="lg:col-span-2 rounded-xl bg-white border border-primary/5 p-6 shadow-sm">
+                    <div
+                        class="lg:col-span-2 rounded-xl bg-white dark:bg-[#1a2c26] border border-primary/5 dark:border-white/10 p-6 shadow-sm transition-colors">
                         <div class="flex items-center justify-between mb-4">
-                            <h3 class="text-lg font-bold text-primary">Recent Transactions</h3>
+                            <h3 class="text-lg font-bold text-primary dark:text-emerald-400">Recent Transactions</h3>
                             <div class="flex gap-2">
                                 <button class="p-2 bg-primary/5 text-primary rounded-lg hover:bg-primary/10">
                                     <span class="material-symbols-outlined text-[18px]">filter_list</span>
@@ -273,9 +279,10 @@
             <div id="transaction-modal"
                 class="hidden fixed inset-0 bg-primary/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
                 <div
-                    class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden scale-100 transition-transform">
-                    <div class="p-6 border-b border-primary/10 flex justify-between items-center bg-background-light">
-                        <h3 class="text-xl font-bold text-primary flex items-center gap-2">
+                    class="bg-white dark:bg-background-dark w-full max-w-md rounded-2xl shadow-2xl overflow-hidden scale-100 transition-transform">
+                    <div
+                        class="p-6 border-b border-primary/10 flex justify-between items-center bg-background-light dark:bg-primary/5">
+                        <h3 class="text-xl font-bold text-primary dark:text-white flex items-center gap-2">
                             <span class="material-symbols-outlined">add_circle</span>
                             Add Transaction
                         </h3>
