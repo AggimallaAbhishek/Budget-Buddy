@@ -1,148 +1,214 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personal Finance Tracker</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load D3.js for Charting -->
+    <title>Budget Buddy | Personal Finance</title>
+    <!-- Load D3.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-    <!-- Use Inter font family -->
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f7f9fb;
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="style.css">
+    <!-- Tailwind CSS (Keep for layout if needed, but customized styles take precedence) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#64748b',
+                    }
+                }
+            }
         }
-        /* Custom scrollbar for transaction list */
-        .transaction-list::-webkit-scrollbar {
-            width: 8px;
-        }
-        .transaction-list::-webkit-scrollbar-thumb {
-            background-color: #cbd5e1;
-            border-radius: 10px;
-        }
-        /* Style for the table header and rows to create 6 columns */
-        /* 15% Date, 10% Time, 40% Description, 15% Credit, 15% Debit, 5% Delete */
-        .grid-header {
-            grid-template-columns: 15% 10% 40% 15% 15% 5%; 
-        }
-        .grid-row {
-            grid-template-columns: 15% 10% 40% 15% 15% 5%;
-        }
-    </style>
+    </script>
 </head>
+
 <body>
 
-    <div id="app" class="min-h-screen p-4 sm:p-8 flex justify-center">
-        <div class="w-full max-w-4xl">
-            <!-- Header and Auth Info (for debugging/identification) -->
-            <header class="mb-8 border-b pb-4">
-                <h1 class="text-3xl font-bold text-gray-800">My Personal Budget Dashboard</h1>
-                <p id="auth-status" class="text-sm text-gray-500 mt-1"></p>
-                <div id="loading-message" class="text-blue-500 font-medium mt-2 hidden">Initializing Firebase...</div>
+    <!-- Loading View -->
+    <div id="loading-view" class="min-h-screen flex items-center justify-center bg-slate-50">
+        <div class="flex flex-col items-center animate-pulse">
+            <h1 class="text-3xl font-bold text-indigo-600 mb-2">Budget Buddy</h1>
+            <p class="text-slate-500 text-sm">Loading...</p>
+        </div>
+    </div>
+
+    <!-- Landing View -->
+    <div id="landing-view" class="landing-container hidden">
+        <div class="landing-hero">
+            <h1 class="landing-title">Budget Buddy</h1>
+            <p class="landing-subtitle">Master your finances with simple, intuitive tracking.</p>
+
+            <button id="google-login-btn" class="btn btn-google text-lg px-8 py-3">
+                <svg class="w-5 h-5 mr-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        fill="#4285F4" />
+                    <path
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                        fill="#34A853" />
+                    <path
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                        fill="#FBBC05" />
+                    <path
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                        fill="#EA4335" />
+                </svg>
+                Sign in with Google
+            </button>
+            <p id="landing-error" class="text-rose-500 mt-4 text-sm hidden"></p>
+        </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="dashboard-view" class="min-h-screen p-4 sm:p-8 flex justify-center bg-slate-50 hidden">
+        <div class="container">
+
+            <!-- Application Header -->
+            <header class="header">
+                <div>
+                    <h1 class="text-3xl font-bold text-slate-800">Budget Buddy</h1>
+                    <p class="text-slate-500 mt-1">Hello, <span id="user-name"
+                            class="font-semibold text-primary">User</span>! 👋</p>
+                </div>
+                <div class="text-right flex flex-col items-end gap-2">
+                    <button id="logout-btn"
+                        class="text-sm font-medium text-slate-500 hover:text-red-500 transition-colors flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Logout
+                    </button>
+                    <div id="loading-message" class="text-primary text-xs font-medium hidden animate-pulse">Syncing...
+                    </div>
+                </div>
             </header>
 
             <!-- Main Content Area -->
-            <main id="main-content" class="space-y-8 hidden">
-                
-                <!-- Balance & Summary Cards -->
+            <main id="main-content" class="space-y-8 fade-in">
+
+                <!-- KPI Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <!-- Total Balance Card -->
-                    <div class="bg-white p-6 rounded-xl shadow-lg border border-blue-100">
-                        <p class="text-sm font-medium text-gray-500">Current Balance</p>
-                        <p id="total-balance" class="text-3xl font-extrabold mt-1 text-gray-800">₹0.00</p>
+                    <!-- Balance -->
+                    <div class="card stat-card border-l-4 border-indigo-500">
+                        <p class="stat-label">Current Balance</p>
+                        <p id="total-balance" class="stat-value text-slate-800">₹0.00</p>
                     </div>
 
-                    <!-- Total Income Card -->
-                    <div class="bg-white p-6 rounded-xl shadow-lg border border-green-100">
-                        <p class="text-sm font-medium text-gray-500">Total Income</p>
-                        <p id="total-income" class="text-3xl font-extrabold mt-1 text-green-600">₹0.00</p>
+                    <!-- Income -->
+                    <div class="card stat-card border-l-4 border-emerald-500">
+                        <p class="stat-label">Total Income</p>
+                        <p id="total-income" class="stat-value text-emerald-600">₹0.00</p>
                     </div>
 
-                    <!-- Total Expenses Card -->
-                    <div class="bg-white p-6 rounded-xl shadow-lg border border-red-100">
-                        <p class="text-sm font-medium text-gray-500">Total Expenses</p>
-                        <p id="total-expenses" class="text-3xl font-extrabold mt-1 text-red-600">₹0.00</p>
+                    <!-- Expenses -->
+                    <div class="card stat-card border-l-4 border-rose-500">
+                        <p class="stat-label">Total Expenses</p>
+                        <p id="total-expenses" class="stat-value text-rose-600">₹0.00</p>
                     </div>
                 </div>
 
-                <!-- Pie Chart for Visualization -->
-                <section class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-                    <h2 class="text-xl font-semibold mb-4 text-gray-800">Income vs. Expense Distribution</h2>
-                    <div id="pie-chart" class="flex justify-center items-center">
-                        <!-- D3.js chart will be rendered here -->
-                    </div>
-                    <div id="chart-legend" class="mt-4 flex flex-wrap justify-center space-x-6 text-sm">
-                        <div class="flex items-center">
-                            <span class="inline-block w-3 h-3 rounded-full bg-green-500 mr-2"></span>
-                            <span>Income</span>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="inline-block w-3 h-3 rounded-full bg-red-500 mr-2"></span>
-                            <span>Expense</span>
-                        </div>
-                    </div>
-                </section>
-                
-                <!-- Transaction Input Form (Updated with Buttons) -->
-                <section class="bg-white p-6 rounded-xl shadow-lg">
-                    <h2 class="text-xl font-semibold mb-4 text-gray-800">Add New Transaction</h2>
-                    <div id="transaction-input-area" class="space-y-4">
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <!-- Description Input -->
-                            <input type="text" id="description" placeholder="Description (e.g., Salary, Groceries)" required
-                                class="col-span-1 md:col-span-4 p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150">
-                            
-                            <!-- Amount Input -->
-                            <input type="number" id="amount" placeholder="Amount in ₹" required step="0.01"
-                                class="col-span-2 p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 transition duration-150">
+                <!-- Charts & Input Section -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-                            <!-- Income Button -->
-                            <button type="button" id="income-btn"
-                                class="col-span-1 p-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition duration-200 shadow-md flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
-                                </svg>
-                                Record Income
-                            </button>
-
-                            <!-- Expense Button -->
-                            <button type="button" id="expense-btn"
-                                class="col-span-1 p-3 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700 transition duration-200 shadow-md flex items-center justify-center">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd" />
-                                </svg>
-                                Record Expense
-                            </button>
+                    <!-- Visualization -->
+                    <section
+                        class="card lg:col-span-1 flex flex-col items-center justify-center relative overflow-hidden">
+                        <h2 class="text-lg font-semibold text-slate-700 w-full mb-4">Overview</h2>
+                        <div id="pie-chart" class="flex justify-center items-center w-full h-64">
+                            <!-- D3 Chart -->
                         </div>
-                    </div>
-                    <p id="form-message" class="mt-3 text-sm text-center hidden"></p>
-                </section>
+                        <div id="chart-legend" class="mt-6 flex flex-wrap justify-center gap-4 text-sm">
+                            <div class="flex items-center">
+                                <span class="w-3 h-3 rounded-full bg-emerald-500 mr-2"></span>
+                                <span class="text-slate-600">Income</span>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="w-3 h-3 rounded-full bg-rose-500 mr-2"></span>
+                                <span class="text-slate-600">Expense</span>
+                            </div>
+                        </div>
+                    </section>
 
-                <!-- Transaction History (Table Layout) -->
+                    <!-- Transaction Input -->
+                    <section class="card lg:col-span-2">
+                        <h2 class="text-lg font-semibold text-slate-700 mb-6">Add Transaction</h2>
+                        <div id="transaction-input-area" class="space-y-6">
+
+                            <div class="grid grid-cols-1 gap-4">
+                                <!-- Description -->
+                                <div class="form-group">
+                                    <label
+                                        class="text-xs uppercase font-bold text-slate-400 tracking-wider">Description</label>
+                                    <input type="text" id="description"
+                                        placeholder="e.g. Monthly Rent, Freelance Project" class="input-field" required>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <!-- Amount -->
+                                    <div class="form-group">
+                                        <label
+                                            class="text-xs uppercase font-bold text-slate-400 tracking-wider">Amount</label>
+                                        <input type="number" id="amount" placeholder="0.00" step="0.01"
+                                            class="input-field" required>
+                                    </div>
+
+                                    <!-- Action Buttons -->
+                                    <div class="flex items-end gap-3">
+                                        <button type="button" id="income-btn" class="btn btn-success w-full">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
+                                                fill="currentColor">
+                                                <path fill-rule="evenodd"
+                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
+                                            Income
+                                        </button>
+                                        <button type="button" id="expense-btn" class="btn btn-danger w-full">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
+                                                fill="currentColor">
+                                                <path fill-rule="evenodd"
+                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z"
+                                                    clip-rule="evenodd" />
+                                            </svg>
+                                            Expense
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <p id="form-message" class="mt-4 text-sm text-center hidden"></p>
+                    </section>
+                </div>
+
+                <!-- Transaction History -->
                 <section>
-                    <h2 class="text-xl font-semibold mb-4 text-gray-800">Transaction History</h2>
-                    <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-                        
-                        <!-- Table Header Mimic using Grid -->
-                        <div class="grid px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 grid-header">
-                            <div class="text-left">Date</div>
-                            <div class="text-left">Time</div>
-                            <div class="text-left">Description</div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-slate-800">Recent Transactions</h2>
+                        <span class="text-sm text-slate-400">Latest activity</span>
+                    </div>
+
+                    <div class="transaction-list-container">
+                        <!-- Table Header -->
+                        <div class="transaction-list-header">
+                            <div>Date</div>
+                            <div>Time</div>
+                            <div>Description</div>
                             <div class="text-right">Credit</div>
                             <div class="text-right">Debit</div>
-                            <div></div> <!-- Placeholder for delete button -->
+                            <div></div>
                         </div>
 
-                        <!-- Scrollable Transaction List Body -->
-                        <ul id="transaction-list" class="divide-y divide-gray-100 max-h-[50vh] overflow-y-auto transaction-list">
-                            <!-- Transactions are rendered here by JavaScript -->
-                            <li class="p-4 text-center text-gray-500" id="empty-list-message">
-                                No transactions recorded yet. Start by adding one above!
-                            </li>
+                        <!-- List Body -->
+                        <ul id="transaction-list" class="transaction-list divide-y divide-slate-100">
+                            <!-- Rendered Items -->
                         </ul>
                     </div>
                 </section>
@@ -151,479 +217,7 @@
         </div>
     </div>
 
-    <script type="module">
-        // Define a fallback configuration using the user-provided details
-        const FALLBACK_FIREBASE_CONFIG = {
-            apiKey: "AIzaSyC0dGDNnGf34AAv-TRXX7Ldrae1X8HG6Aw",
-            authDomain: "budgetbuddy-551ff.firebaseapp.com",
-            projectId: "budgetbuddy-551ff",
-            storageBucket: "budgetbuddy-551ff.firebasestorage.app",
-            messagingSenderId: "201578069546",
-            appId: "1:201578069546:web:092409a04136dbd67e4d53",
-            measurementId: "G-XST7WHDH11"
-        };
-        
-        // Global Firebase variables provided by the Canvas environment
-        let canvasFirebaseConfig = null;
-        try {
-            // Attempt to parse the environment variable config
-            canvasFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        } catch (e) {
-            console.error("Error parsing __firebase_config:", e);
-        }
-        
-        // Use environment config if available, otherwise use the provided fallback config
-        const firebaseConfig = canvasFirebaseConfig || FALLBACK_FIREBASE_CONFIG;
-        
-        // Use projectId as fallback for appId, which is required for firestore paths
-        const appId = typeof __app_id !== 'undefined' ? __app_id : firebaseConfig.projectId;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        // Firebase Imports
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { 
-            getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc, setLogLevel, serverTimestamp
-        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Global variables for Firebase instances
-        let app, db, auth;
-        let userId = null;
-        let isAuthReady = false;
-
-        // Set Firebase logging level to debug for easy issue identification
-        setLogLevel('debug');
-        
-        const loadingMessage = document.getElementById('loading-message');
-        const mainContent = document.getElementById('main-content');
-        const authStatusElement = document.getElementById('auth-status');
-        const transactionListElement = document.getElementById('transaction-list');
-
-        /**
-         * Initializes Firebase and authenticates the user.
-         */
-        async function initializeFirebase() {
-            loadingMessage.classList.remove('hidden');
-
-            try {
-                // firebaseConfig is guaranteed to be set now (either via environment or fallback)
-                app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-
-                // 1. Listen for auth state changes to set up persistence listeners
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        authStatusElement.innerHTML = `Signed in as: <span class="font-mono text-xs p-1 bg-gray-100 rounded">${userId}</span> (Private Path)`;
-                        isAuthReady = true;
-                        loadingMessage.classList.add('hidden');
-                        mainContent.classList.remove('hidden');
-                        // Start listening for transactions
-                        setupTransactionListener();
-                    } else {
-                        // User is signed out or initial check is done
-                        authStatusElement.innerHTML = 'Not signed in. Attempting sign-in...';
-                        if (!isAuthReady) {
-                            // If this is the initial load and no user, attempt sign-in
-                            await handleSignIn();
-                        }
-                    }
-                });
-
-                // 2. Perform initial sign-in attempt
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-
-            } catch (error) {
-                console.error("Firebase Initialization or Sign-in Error:", error);
-                authStatusElement.innerHTML = `<span class="text-red-600">Initialization failed: ${error.message}</span>`;
-                loadingMessage.classList.add('hidden');
-            }
-        }
-
-        /**
-         * Handles the sign-in process using custom token or anonymously.
-         */
-        async function handleSignIn() {
-            try {
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (e) {
-                console.error("Sign-in failed:", e);
-                authStatusElement.innerHTML = `<span class="text-red-600">Sign-in failed. Please check console.</span>`;
-            }
-        }
-
-        /**
-         * Returns the collection reference for the current user's transactions.
-         */
-        function getTransactionsCollection() {
-            if (!db || !userId) {
-                console.error("Database or User ID not ready.");
-                return null;
-            }
-            // Private data path: /artifacts/{appId}/users/{userId}/transactions
-            const path = `artifacts/${appId}/users/${userId}/transactions`;
-            return collection(db, path);
-        }
-
-        /**
-         * Adds a new transaction to Firestore.
-         */
-        async function addTransaction(description, rawAmount, type) {
-            const formMessage = document.getElementById('form-message');
-            formMessage.classList.add('hidden');
-            
-            // Ensure amount is positive and convert to Rupee (keep sign logic)
-            let amount = parseFloat(rawAmount);
-            if (isNaN(amount) || amount <= 0) {
-                 showMessage("Amount must be a positive number.", 'text-red-500');
-                 return;
-            }
-            if (description.trim() === '') {
-                 showMessage("Description cannot be empty.", 'text-red-500');
-                 return;
-            }
-
-
-            // Apply sign based on type
-            if (type === 'expense') {
-                amount = -Math.abs(amount); // Ensure expense is negative
-            } else {
-                amount = Math.abs(amount); // Ensure income is positive
-            }
-
-            const transactionsCollection = getTransactionsCollection();
-            if (!transactionsCollection) return;
-
-            try {
-                await addDoc(transactionsCollection, {
-                    description: description.trim(),
-                    amount: amount,
-                    type: type, // 'income' or 'expense'
-                    timestamp: serverTimestamp(), // Use server timestamp for ordering
-                });
-                showMessage("Transaction recorded successfully!", 'text-green-600');
-                document.getElementById('description').value = '';
-                document.getElementById('amount').value = ''; 
-            } catch (e) {
-                console.error("Error adding document: ", e);
-                showMessage(`Failed to save transaction: ${e.message}`, 'text-red-500');
-            }
-        }
-        
-        /**
-         * Deletes a transaction from Firestore.
-         */
-        async function deleteTransaction(id) {
-            // Using a custom modal style message instead of alert/confirm
-            const confirmDelete = window.confirm ? window.confirm("Are you sure you want to delete this transaction?") : true; 
-
-            if (!confirmDelete) return;
-            
-            const transactionsCollection = getTransactionsCollection();
-            if (!transactionsCollection) return;
-            
-            try {
-                await deleteDoc(doc(transactionsCollection, id));
-                // UI will automatically update via the onSnapshot listener
-            } catch (e) {
-                console.error("Error deleting document: ", e);
-                // Note: since alert() is prohibited, we rely on the console error logging for debugging
-                console.error(`Failed to delete transaction: ${e.message}`); 
-            }
-        }
-
-        /**
-         * Sets up the real-time listener for transactions.
-         */
-        function setupTransactionListener() {
-            const transactionsCollection = getTransactionsCollection();
-            if (!transactionsCollection) return;
-
-            // Query to get all transactions, ordered by timestamp descending
-            // NOTE: orderBy is used here, which might require an index in Firestore. 
-            // If you get an error, remove the orderBy part and sort in memory.
-            const q = query(transactionsCollection, orderBy("timestamp", "desc"));
-
-            // Real-time listener
-            onSnapshot(q, (snapshot) => {
-                const transactions = [];
-                let totalIncome = 0;
-                let totalExpenses = 0;
-
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const transaction = {
-                        id: doc.id,
-                        description: data.description,
-                        amount: data.amount,
-                        type: data.type,
-                        timestamp: data.timestamp ? data.timestamp.toDate() : new Date(),
-                    };
-                    transactions.push(transaction);
-
-                    if (transaction.type === 'income') {
-                        totalIncome += Math.abs(transaction.amount);
-                    } else if (transaction.type === 'expense') {
-                        totalExpenses += Math.abs(transaction.amount);
-                    }
-                });
-
-                const totalBalance = totalIncome - totalExpenses;
-                
-                updateSummary(totalBalance, totalIncome, totalExpenses);
-                renderTransactions(transactions);
-                renderPieChart(totalIncome, totalExpenses); // Render the chart
-            }, (error) => {
-                console.error("Error listening to transactions: ", error);
-                
-                // Enhanced error handling for permission issues
-                let displayError = `Data Error: ${error.message}`;
-                if (error.code === 'permission-denied') {
-                    displayError = `
-                        <span class="font-bold">Error: Missing Permissions!</span> 
-                        <br> 
-                        Check your Firestore Security Rules. You need rules that allow authenticated users (auth != null) 
-                        to read/write data in the path: 
-                        <span class="font-mono text-xs">/artifacts/${appId}/users/${userId}/transactions</span>
-                    `;
-                }
-                
-                authStatusElement.innerHTML = `<span class="text-red-600">${displayError}</span>`;
-            });
-        }
-
-        /**
-         * Currency formatter for Rupee (INR).
-         */
-        const formatCurrency = (amount) => {
-            // Use 'en-IN' locale for Indian Rupee symbol and formatting
-            return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
-        };
-
-        /**
-         * Updates the balance summary display.
-         */
-        function updateSummary(balance, income, expenses) {
-            const balanceElement = document.getElementById('total-balance');
-            balanceElement.textContent = formatCurrency(balance);
-            balanceElement.classList.remove('text-red-600', 'text-green-600', 'text-gray-800');
-            
-            // Set color based on balance
-            if (balance > 0) {
-                 balanceElement.classList.add('text-green-600');
-            } else if (balance < 0) {
-                 balanceElement.classList.add('text-red-600');
-            } else {
-                 balanceElement.classList.add('text-gray-800');
-            }
-
-
-            document.getElementById('total-income').textContent = formatCurrency(income);
-            document.getElementById('total-expenses').textContent = formatCurrency(expenses);
-        }
-
-        /**
-         * Renders the list of transactions, using Credit/Debit columns.
-         */
-        function renderTransactions(transactions) {
-            transactionListElement.innerHTML = ''; // Clear existing list
-
-            if (transactions.length === 0) {
-                // If the empty message is visible, show it.
-                const emptyRow = document.createElement('li');
-                emptyRow.className = "p-4 text-center text-gray-500";
-                emptyRow.id = "empty-list-message";
-                emptyRow.textContent = "No transactions recorded yet. Start by adding one above!";
-                transactionListElement.appendChild(emptyRow);
-                return;
-            }
-
-            transactions.forEach(tx => {
-                const isIncome = tx.type === 'income';
-                const amountValue = formatCurrency(Math.abs(tx.amount));
-                
-                // Set Credit/Debit cells: Credit is income (green), Debit is expense (red)
-                const creditCell = isIncome ? `<span class="font-medium text-green-600">${amountValue}</span>` : '';
-                const debitCell = !isIncome ? `<span class="font-medium text-red-600">${amountValue}</span>` : '';
-
-                // --- Split date and time formatting ---
-                const formattedDate = new Intl.DateTimeFormat('en-IN', { 
-                    month: 'short', day: 'numeric', year: 'numeric'
-                }).format(tx.timestamp);
-                
-                const formattedTime = new Intl.DateTimeFormat('en-IN', {
-                    hour: '2-digit', minute: '2-digit', hour12: true 
-                }).format(tx.timestamp);
-                // ------------------------------------------
-
-                const listItem = document.createElement('li');
-                // Use the custom grid-row style for consistency
-                listItem.className = `p-4 grid items-center hover:bg-gray-50 transition duration-150 grid-row`; 
-                listItem.innerHTML = `
-                    <!-- Date -->
-                    <div class="text-left text-sm text-gray-600">${formattedDate}</div>
-                    
-                    <!-- Time -->
-                    <div class="text-left text-sm text-gray-600">${formattedTime}</div>
-
-                    <!-- Description -->
-                    <div class="text-left text-sm text-gray-800 font-medium">${tx.description}</div>
-                    
-                    <!-- Credit -->
-                    <div class="text-right text-sm">${creditCell}</div>
-                    
-                    <!-- Debit -->
-                    <div class="text-right text-sm">${debitCell}</div>
-                    
-                    <!-- Delete Button -->
-                    <div class="flex justify-end">
-                        <button class="text-gray-400 hover:text-red-500 transition duration-150 p-1 rounded-full" 
-                                data-id="${tx.id}" aria-label="Delete transaction">
-                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V8z" clip-rule="evenodd" />
-                             </svg>
-                        </button>
-                    </div>
-                `;
-                
-                // Add event listener for delete button
-                listItem.querySelector('button').addEventListener('click', (e) => {
-                    const id = e.currentTarget.getAttribute('data-id');
-                    deleteTransaction(id);
-                });
-
-                transactionListElement.appendChild(listItem);
-            });
-        }
-
-        /**
-         * Renders the D3.js Pie/Donut chart.
-         */
-        function renderPieChart(totalIncome, totalExpenses) {
-            // Data structure for D3
-            const data = [
-                { label: 'Income', value: totalIncome, color: '#10b981' }, // green-600
-                { label: 'Expense', value: totalExpenses, color: '#ef4444' }  // red-500
-            ];
-            
-            const total = totalIncome + totalExpenses;
-            
-            // Filter out zero entries if they represent the entire total
-            const displayData = data.filter(d => d.value > 0);
-            
-            const container = document.getElementById('pie-chart');
-            // Clear previous chart
-            container.innerHTML = '';
-            
-            // If no data to show, display message and exit
-            if (total === 0 || displayData.length === 0) {
-                container.innerHTML = 
-                    '<div class="text-center text-gray-500 p-8">No transaction data available to generate chart.</div>';
-                return;
-            }
-
-            const size = 300;
-            const radius = size / 2;
-
-            const svg = d3.select("#pie-chart")
-                .append("svg")
-                .attr("viewBox", `0 0 ${size} ${size}`)
-                .attr("preserveAspectRatio", "xMidYMid meet")
-                .style("display", "block")
-                .style("max-width", "300px")
-                .style("margin", "auto")
-                .append("g")
-                .attr("transform", `translate(${size / 2}, ${size / 2})`);
-
-            const pie = d3.pie()
-                .value(d => d.value)
-                .sort(null);
-
-            const arc = d3.arc()
-                .innerRadius(radius * 0.5) // Donut chart
-                .outerRadius(radius);
-
-            const arcs = svg.selectAll(".arc")
-                .data(pie(displayData))
-                .enter()
-                .append("g")
-                .attr("class", "arc");
-
-            // Append the slices
-            arcs.append("path")
-                .attr("d", arc)
-                .attr("fill", (d, i) => displayData[i].color)
-                .attr("stroke", "white")
-                .style("stroke-width", "2px")
-                .append("title") // Tooltip on hover
-                .text(d => `${d.data.label}: ${formatCurrency(d.data.value)} (${(d.data.value / total * 100).toFixed(1)}%)`);
-
-            // Add text label in the center for the Net Balance
-            const netBalance = totalIncome - totalExpenses;
-            const balanceColor = netBalance >= 0 ? '#10b981' : '#ef4444'; // Green or Red
-
-            svg.append("text")
-                .attr("text-anchor", "middle")
-                .attr("dominant-baseline", "middle")
-                .attr("fill", balanceColor) 
-                .attr("font-size", "1.1rem")
-                .attr("font-weight", "bold")
-                .text("Net");
-
-            svg.append("text")
-                .attr("text-anchor", "middle")
-                .attr("dominant-baseline", "middle")
-                .attr("fill", balanceColor)
-                .attr("font-size", "0.9rem")
-                .attr("dy", "1.5em")
-                .text(formatCurrency(netBalance));
-        }
-        
-        /**
-         * Displays a temporary message in the form area.
-         */
-        function showMessage(text, colorClass) {
-            const formMessage = document.getElementById('form-message');
-            formMessage.textContent = text;
-            formMessage.className = `mt-3 text-sm text-center ${colorClass}`;
-            formMessage.classList.remove('hidden');
-
-            setTimeout(() => {
-                formMessage.classList.add('hidden');
-            }, 3000); // Hide after 3 seconds
-        }
-
-        // --- Event Listeners and Initialization ---
-
-        const descriptionInput = document.getElementById('description');
-        const amountInput = document.getElementById('amount');
-        const incomeBtn = document.getElementById('income-btn');
-        const expenseBtn = document.getElementById('expense-btn');
-
-        // Event listener for Income button
-        incomeBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            addTransaction(descriptionInput.value, amountInput.value, 'income');
-        });
-
-        // Event listener for Expense button
-        expenseBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            addTransaction(descriptionInput.value, amountInput.value, 'expense');
-        });
-
-        // Initialize the application when the script loads
-        initializeFirebase();
-
-    </script>
+    <script type="module" src="script.js"></script>
 </body>
+
 </html>
