@@ -72,6 +72,7 @@ const modalAmount = document.getElementById('modal-amount');
 const modalDescription = document.getElementById('modal-description');
 const modalCategory = document.getElementById('modal-category');
 const modalMessage = document.getElementById('modal-message');
+const themeToggleBtn = document.getElementById('theme-toggle');
 
 
 /**
@@ -493,6 +494,34 @@ function renderPieChart(totalIncome, totalExpenses) {
     }
 }
 
+// Theme Logic
+function initializeTheme() {
+    const storedTheme = localStorage.getItem('theme');
+    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    if (storedTheme === 'dark' || (!storedTheme && systemDark)) {
+        document.documentElement.classList.add('dark');
+        updateThemeIcon(true);
+    } else {
+        document.documentElement.classList.remove('dark');
+        updateThemeIcon(false);
+    }
+}
+
+function toggleTheme() {
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    updateThemeIcon(isDark);
+}
+
+function updateThemeIcon(isDark) {
+    if (!themeToggleBtn) return;
+    const iconSpan = themeToggleBtn.querySelector('span');
+    if (iconSpan) {
+        iconSpan.textContent = isDark ? 'light_mode' : 'dark_mode';
+    }
+}
+
 // Event Listeners
 if (googleLoginBtn) googleLoginBtn.addEventListener('click', loginWithGoogle);
 if (logoutBtn) logoutBtn.addEventListener('click', logout);
@@ -501,6 +530,8 @@ if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
 if (modalTypeExpense) modalTypeExpense.addEventListener('click', () => setModalType('expense'));
 if (modalTypeIncome) modalTypeIncome.addEventListener('click', () => setModalType('income'));
 if (saveTransactionBtn) saveTransactionBtn.addEventListener('click', startAddTransaction);
+if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
 
 // Init
+initializeTheme();
 initializeFirebase();
