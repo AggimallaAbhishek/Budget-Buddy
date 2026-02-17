@@ -32,8 +32,9 @@ import {
     signInWithCustomToken,
     onAuthStateChanged,
     GoogleAuthProvider,
-    signInWithRedirect,
-    getRedirectResult,
+    signInWithPopup,
+    setPersistence,
+    browserLocalPersistence,
     signOut
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
@@ -44,11 +45,13 @@ import {
 let app, db, auth;
 let userId = null;
 let unsubscribeTransactions = null; // Store listener Unsubscribe function
+let currentTransactionType = 'expense'; // Default for modal
 
 // Set Firebase logging level to debug for easy issue identification
 setLogLevel('debug');
 
-const loadingMessage = document.getElementById('loading-message');
+// DOM Elements
+const loadingMessage = document.getElementById('loading-message'); // Note: Removed from new HTML, can remove usage
 const transactionListElement = document.getElementById('transaction-list');
 const loadingView = document.getElementById('loading-view');
 const landingView = document.getElementById('landing-view');
@@ -57,6 +60,19 @@ const userNameElement = document.getElementById('user-name');
 const googleLoginBtn = document.getElementById('google-login-btn');
 const logoutBtn = document.getElementById('logout-btn');
 const landingError = document.getElementById('landing-error');
+
+// Modal Elements
+const modal = document.getElementById('transaction-modal');
+const quickAddBtn = document.getElementById('quick-add-btn');
+const closeModalBtn = document.getElementById('close-modal-btn');
+const saveTransactionBtn = document.getElementById('save-transaction-btn');
+const modalTypeExpense = document.getElementById('modal-type-expense');
+const modalTypeIncome = document.getElementById('modal-type-income');
+const modalAmount = document.getElementById('modal-amount');
+const modalDescription = document.getElementById('modal-description');
+const modalCategory = document.getElementById('modal-category');
+const modalMessage = document.getElementById('modal-message');
+
 
 /**
  * Initializes Firebase and authenticates the user.
@@ -73,7 +89,7 @@ async function initializeFirebase() {
                 // User is signed in
                 userId = user.uid;
                 const displayName = user.displayName || 'User';
-                userNameElement.textContent = displayName;
+                if (userNameElement) userNameElement.textContent = displayName;
 
                 showDashboard();
                 setupTransactionListener();
@@ -87,32 +103,14 @@ async function initializeFirebase() {
                 }
             }
             // Hide loading view once auth is determined
-            loadingView.classList.add('hidden');
+            if (loadingView) loadingView.classList.add('hidden');
         });
 
-        // Handle redirect result (for errors during sign-in)
+        // Ensure persistence is set to LOCAL
         try {
-            await getRedirectResult(auth);
+            await setPersistence(auth, browserLocalPersistence);
         } catch (error) {
-            console.error("Redirect Sign-in Error:", error);
-            let errorMessage = `Sign-in failed: ${error.message}`;
-
-            if (error.code === 'auth/unauthorized-domain') {
-                const currentDomain = window.location.hostname;
-                errorMessage = `
-                    <div class="mb-2"><span class="font-bold">Error: Unauthorized Domain (${currentDomain})</span></div>
-                    <div class="mb-2">Please add below domain to Firebase Console > Authentication > Settings > Authorized Domains:</div>
-                    <div class="flex items-center justify-center gap-2">
-                        <code class="bg-gray-100 px-2 py-1 rounded select-all">${currentDomain}</code>
-                        <button onclick="navigator.clipboard.writeText('${currentDomain}')" class="text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 px-2 py-1 rounded transition-colors" title="Copy to clipboard">
-                            Copy
-                        </button>
-                    </div>
-                `;
-            }
-
-            landingError.innerHTML = errorMessage;
-            landingError.classList.remove('hidden');
+            console.error("Persistence Error:", error);
         }
 
         // Handle initial custom token sign-in (if provided by environment)
@@ -122,24 +120,45 @@ async function initializeFirebase() {
 
     } catch (error) {
         console.error("Firebase Initialization Error:", error);
-        landingError.textContent = `Initialization Error: ${error.message}`;
-        landingError.classList.remove('hidden');
+        if (landingError) {
+            landingError.textContent = `Initialization Error: ${error.message}. Please refresh or check console.`;
+            landingError.classList.remove('hidden');
+        }
+        if (loadingView) loadingView.classList.add('hidden');
+        if (landingView) landingView.classList.remove('hidden');
     }
 }
 
+// Safety timeout
+setTimeout(() => {
+    if (loadingView && !loadingView.classList.contains('hidden')) {
+        console.warn("Auth listener timeout - forcing landing view.");
+        loadingView.classList.add('hidden');
+        landingView.classList.remove('hidden');
+        if (landingError) {
+            landingError.textContent = "Connection timed out. Please check your internet and refresh.";
+            landingError.classList.remove('hidden');
+        }
+    }
+}, 8000);
+
+
 /**
- * Sign in with Google (Redirect Mode)
+ * Sign in with Google (Popup Mode)
  */
 async function loginWithGoogle() {
     landingError.classList.add('hidden');
     const provider = new GoogleAuthProvider();
 
     try {
-        await signInWithRedirect(auth, provider);
-        // Page will redirect, handling result on reload in initializeFirebase
+        await signInWithPopup(auth, provider);
     } catch (error) {
         console.error("Google Sign-in Error:", error);
-        landingError.textContent = `Sign-in failed: ${error.message}`;
+        let errorMessage = `Sign-in failed: ${error.message}`;
+        if (error.code === 'auth/popup-closed-by-user') {
+            errorMessage = "Sign-in cancelled by user.";
+        }
+        landingError.textContent = errorMessage;
         landingError.classList.remove('hidden');
     }
 }
@@ -150,7 +169,6 @@ async function loginWithGoogle() {
 async function logout() {
     try {
         await signOut(auth);
-        // Successful logout will trigger onAuthStateChanged -> showLanding
     } catch (error) {
         console.error("Sign-out Error:", error);
     }
@@ -170,100 +188,131 @@ function showLanding() {
 }
 
 /**
- * Returns the collection reference for the current user's transactions.
+ * Modal Logic
  */
-function getTransactionsCollection() {
-    if (!db || !userId) {
-        console.error("Database or User ID not ready.");
-        return null;
+function openModal() {
+    modal.classList.remove('hidden');
+    // Reset fields
+    modalAmount.value = '';
+    modalDescription.value = '';
+    modalCategory.selectedIndex = 0; // Default to first option
+    modalMessage.classList.add('hidden');
+    // Default to expense
+    setModalType('expense');
+}
+
+function closeModal() {
+    modal.classList.add('hidden');
+}
+
+function setModalType(type) {
+    currentTransactionType = type;
+
+    // Toggle UI classes
+    if (type === 'expense') {
+        modalTypeExpense.className = "flex-1 py-2.5 rounded-lg font-bold text-sm transition-all bg-white text-rose-600 shadow-sm ring-1 ring-black/5";
+        modalTypeIncome.className = "flex-1 py-2.5 rounded-lg font-bold text-sm text-primary/60 hover:text-emerald-600 transition-all";
+    } else {
+        modalTypeIncome.className = "flex-1 py-2.5 rounded-lg font-bold text-sm transition-all bg-white text-emerald-600 shadow-sm ring-1 ring-black/5";
+        modalTypeExpense.className = "flex-1 py-2.5 rounded-lg font-bold text-sm text-primary/60 hover:text-rose-600 transition-all";
     }
-    // Private data path: /artifacts/{appId}/users/{userId}/transactions
-    const path = `artifacts/${appId}/users/${userId}/transactions`;
-    return collection(db, path);
 }
 
 /**
- * Adds a new transaction to Firestore.
+ * DB Operations
  */
-async function addTransaction(description, rawAmount, type) {
-    const formMessage = document.getElementById('form-message');
-    formMessage.classList.add('hidden');
+function getTransactionsCollection() {
+    if (!db || !userId) return null;
+    return collection(db, `artifacts/${appId}/users/${userId}/transactions`);
+}
 
-    // Ensure amount is positive and convert to Rupee (keep sign logic)
+async function startAddTransaction() {
+    const description = modalDescription.value.trim();
+    const rawAmount = modalAmount.value;
+    const category = modalCategory.value;
+    const type = currentTransactionType;
+
+    modalMessage.classList.add('hidden');
+
+    // Validation
     let amount = parseFloat(rawAmount);
     if (isNaN(amount) || amount <= 0) {
-        showMessage("Amount must be a positive number.", 'text-red-500');
+        showModalError("Please enter a valid amount.");
         return;
     }
-    if (description.trim() === '') {
-        showMessage("Description cannot be empty.", 'text-red-500');
+    if (description === '') {
+        showModalError("Please enter a description.");
         return;
     }
 
-    // Apply sign based on type
+    // Apply sign
     if (type === 'expense') {
-        amount = -Math.abs(amount); // Ensure expense is negative
+        amount = -Math.abs(amount);
     } else {
-        amount = Math.abs(amount); // Ensure income is positive
+        amount = Math.abs(amount);
     }
 
     const transactionsCollection = getTransactionsCollection();
     if (!transactionsCollection) return;
 
     try {
+        // Show loading state on button
+        const originalBtnText = saveTransactionBtn.innerHTML;
+        saveTransactionBtn.textContent = "Saving...";
+        saveTransactionBtn.disabled = true;
+
         await addDoc(transactionsCollection, {
-            description: description.trim(),
+            description: description,
             amount: amount,
-            type: type, // 'income' or 'expense'
-            timestamp: serverTimestamp(), // Use server timestamp for ordering
+            category: category,
+            type: type,
+            status: 'Completed', // Default status for now
+            timestamp: serverTimestamp(),
         });
-        showMessage("Transaction recorded successfully!", 'text-emerald-600');
-        document.getElementById('description').value = '';
-        document.getElementById('amount').value = '';
+
+        // Reset and close
+        closeModal();
+        saveTransactionBtn.innerHTML = originalBtnText;
+        saveTransactionBtn.disabled = false;
+
     } catch (e) {
         console.error("Error adding document: ", e);
-        showMessage(`Failed to save transaction: ${e.message}`, 'text-red-500');
+        showModalError(`Failed: ${e.message}`);
+        saveTransactionBtn.disabled = false;
     }
 }
 
-/**
- * Deletes a transaction from Firestore.
- */
-async function deleteTransaction(id) {
-    const confirmDelete = window.confirm ? window.confirm("Are you sure you want to delete this transaction?") : true;
+function showModalError(msg) {
+    modalMessage.textContent = msg;
+    modalMessage.className = "text-center text-sm font-medium text-rose-500";
+    modalMessage.classList.remove('hidden');
+}
 
-    if (!confirmDelete) return;
+async function deleteTransaction(id) {
+    if (!confirm("Delete this transaction?")) return;
 
     const transactionsCollection = getTransactionsCollection();
     if (!transactionsCollection) return;
 
     try {
         await deleteDoc(doc(transactionsCollection, id));
-        // UI will automatically update via the onSnapshot listener
     } catch (e) {
         console.error("Error deleting document: ", e);
-        console.error(`Failed to delete transaction: ${e.message}`);
     }
 }
 
 /**
- * Sets up the real-time listener for transactions.
+ * Real-time Listener
  */
 function setupTransactionListener() {
-    if (unsubscribeTransactions) {
-        unsubscribeTransactions(); // Clean up existing listener if called multiple times
-    }
+    if (unsubscribeTransactions) unsubscribeTransactions();
 
     const transactionsCollection = getTransactionsCollection();
     if (!transactionsCollection) return;
 
-    loadingMessage.classList.remove('hidden');
-
     const q = query(transactionsCollection, orderBy("timestamp", "desc"));
 
-    // Real-time listener
     unsubscribeTransactions = onSnapshot(q, (snapshot) => {
-        loadingMessage.classList.add('hidden');
         const transactions = [];
         let totalIncome = 0;
         let totalExpenses = 0;
@@ -275,6 +324,8 @@ function setupTransactionListener() {
                 description: data.description,
                 amount: data.amount,
                 type: data.type,
+                category: data.category || 'Others', // Fallback for old data
+                status: data.status || 'Completed',
                 timestamp: data.timestamp ? data.timestamp.toDate() : new Date(),
             };
             transactions.push(transaction);
@@ -293,214 +344,163 @@ function setupTransactionListener() {
         renderPieChart(totalIncome, totalExpenses);
     }, (error) => {
         console.error("Error listening to transactions: ", error);
-        loadingMessage.classList.add('hidden');
-
-        let displayError = `Data Error: ${error.message}`;
-        if (error.code === 'permission-denied') {
-            // Handle silently or show toast, main UI shouldn't break completely
-            console.error("Permission Denied: Ensure user is logged in.");
-        }
     });
 }
 
 /**
- * Currency formatter for Rupee (INR).
+ * Helpers
  */
 const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
 };
 
-/**
- * Updates the balance summary display.
- */
 function updateSummary(balance, income, expenses) {
-    const balanceElement = document.getElementById('total-balance');
-    balanceElement.textContent = formatCurrency(balance);
-    balanceElement.classList.remove('text-rose-600', 'text-emerald-600', 'text-slate-800');
-
-    if (balance > 0) {
-        balanceElement.classList.add('text-emerald-600');
-    } else if (balance < 0) {
-        balanceElement.classList.add('text-rose-600');
-    } else {
-        balanceElement.classList.add('text-slate-800');
-    }
-
+    document.getElementById('total-balance').textContent = formatCurrency(balance);
     document.getElementById('total-income').textContent = formatCurrency(income);
     document.getElementById('total-expenses').textContent = formatCurrency(expenses);
 }
 
-/**
- * Renders the list of transactions.
- */
 function renderTransactions(transactions) {
     transactionListElement.innerHTML = '';
+    const emptyState = document.getElementById('empty-state');
 
     if (transactions.length === 0) {
-        const emptyRow = document.createElement('li');
-        emptyRow.className = "p-4 text-center text-gray-500";
-        emptyRow.id = "empty-list-message";
-        emptyRow.textContent = "No transactions recorded yet. Start by adding one above!";
-        transactionListElement.appendChild(emptyRow);
+        if (emptyState) emptyState.classList.remove('hidden');
         return;
     }
+    if (emptyState) emptyState.classList.add('hidden');
 
     transactions.forEach(tx => {
         const isIncome = tx.type === 'income';
-        const amountValue = formatCurrency(Math.abs(tx.amount));
+        const amountFormatted = formatCurrency(Math.abs(tx.amount));
+        const amountColor = isIncome ? 'text-emerald-600' : 'text-rose-500';
+        const sign = isIncome ? '+' : '-';
 
-        const creditCell = isIncome ? `<span class="font-medium text-emerald-600">${amountValue}</span>` : '';
-        const debitCell = !isIncome ? `<span class="font-medium text-rose-600">${amountValue}</span>` : '';
+        const dateFormatted = new Intl.DateTimeFormat('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }).format(tx.timestamp);
 
-        const formattedDate = new Intl.DateTimeFormat('en-IN', {
-            month: 'short', day: 'numeric', year: 'numeric'
-        }).format(tx.timestamp);
+        // Status Badge Logic
+        let statusBadge = '';
+        if (tx.status === 'Completed') {
+            statusBadge = `<span class="flex items-center gap-1.5 text-xs font-bold text-emerald-600"><span class="size-1.5 rounded-full bg-emerald-600"></span> Completed</span>`;
+        } else if (tx.status === 'Processing') {
+            statusBadge = `<span class="flex items-center gap-1.5 text-xs font-bold text-amber-500"><span class="size-1.5 rounded-full bg-amber-500"></span> Processing</span>`;
+        } else {
+            statusBadge = `<span class="text-xs font-bold text-slate-400">${tx.status}</span>`;
+        }
 
-        const formattedTime = new Intl.DateTimeFormat('en-IN', {
-            hour: '2-digit', minute: '2-digit', hour12: true
-        }).format(tx.timestamp);
+        const iconBg = isIncome ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600';
+        const icon = isIncome ? 'trending_up' : 'trending_down';
 
-        const listItem = document.createElement('li');
-        listItem.className = `transaction-item`;
-        listItem.innerHTML = `
-            <div class="text-left text-sm text-gray-600">${formattedDate}</div>
-            <div class="text-left text-sm text-gray-600">${formattedTime}</div>
-            <div class="text-left text-sm text-gray-800 font-medium">${tx.description}</div>
-            <div class="text-right text-sm">${creditCell}</div>
-            <div class="text-right text-sm">${debitCell}</div>
-            <div class="flex justify-end">
-                <button class="text-gray-400 hover:text-red-500 transition duration-150 p-1 rounded-full" 
-                        data-id="${tx.id}" aria-label="Delete transaction">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V8z" clip-rule="evenodd" />
-                        </svg>
+        // Category Badge
+        const categoryBadge = `<span class="text-xs font-medium bg-primary/5 text-primary px-2.5 py-1 rounded-full border border-primary/10">${tx.category}</span>`;
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-primary/5 transition-colors group";
+        tr.innerHTML = `
+            <td class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                     <div class="size-9 rounded-full ${iconBg} flex items-center justify-center">
+                        <span class="material-symbols-outlined text-[18px]">${icon}</span>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-primary">${tx.description}</p>
+                    </div>
+                </div>
+            </td>
+            <td class="px-6 py-4">${categoryBadge}</td>
+            <td class="px-6 py-4 text-sm text-primary/60 font-medium">${dateFormatted}</td>
+            <td class="px-6 py-4">${statusBadge}</td>
+            <td class="px-6 py-4 text-right font-bold ${amountColor}">${sign}${amountFormatted}</td>
+             <td class="px-6 py-4 text-right">
+                <button class="delete-btn text-gray-300 hover:text-rose-500 transition-colors" data-id="${tx.id}">
+                    <span class="material-symbols-outlined text-lg">delete</span>
                 </button>
-            </div>
+            </td>
         `;
 
-        listItem.querySelector('button').addEventListener('click', (e) => {
-            const id = e.currentTarget.getAttribute('data-id');
-            deleteTransaction(id);
+        tr.querySelector('.delete-btn').addEventListener('click', (e) => {
+            // stop propagation if clicking row opens details vs delete
+            e.stopPropagation();
+            deleteTransaction(tx.id);
         });
 
-        transactionListElement.appendChild(listItem);
+        transactionListElement.appendChild(tr);
     });
 }
 
-/**
- * Renders the D3.js Pie/Donut chart.
- */
 function renderPieChart(totalIncome, totalExpenses) {
+    // Reuse existing chart logic but adapted to new size
     const data = [
         { label: 'Income', value: totalIncome, color: '#10b981' },
-        { label: 'Expense', value: totalExpenses, color: '#ef4444' }
+        { label: 'Expense', value: totalExpenses, color: '#f43f5e' }
     ];
 
     const total = totalIncome + totalExpenses;
     const displayData = data.filter(d => d.value > 0);
     const container = document.getElementById('pie-chart');
     container.innerHTML = '';
+    const legendContainer = document.getElementById('chart-legend');
+    if (legendContainer) legendContainer.innerHTML = '';
 
     if (total === 0 || displayData.length === 0) {
-        container.innerHTML =
-            '<div class="text-center text-gray-500 p-8">No transaction data available to generate chart.</div>';
+        container.innerHTML = '<div class="text-primary/40 text-sm">No data yet</div>';
         return;
     }
 
-    const size = 300;
+    const size = 250;
     const radius = size / 2;
 
     const svg = d3.select("#pie-chart")
         .append("svg")
         .attr("viewBox", `0 0 ${size} ${size}`)
-        .attr("preserveAspectRatio", "xMidYMid meet")
-        .style("display", "block")
-        .style("max-width", "300px")
-        .style("margin", "auto")
+        .style("max-width", "250px")
         .append("g")
         .attr("transform", `translate(${size / 2}, ${size / 2})`);
 
-    const pie = d3.pie()
-        .value(d => d.value)
-        .sort(null);
+    const pie = d3.pie().value(d => d.value).sort(null);
+    const arc = d3.arc().innerRadius(radius * 0.6).outerRadius(radius);
 
-    const arc = d3.arc()
-        .innerRadius(radius * 0.5)
-        .outerRadius(radius);
-
-    const arcs = svg.selectAll(".arc")
+    svg.selectAll(".arc")
         .data(pie(displayData))
         .enter()
-        .append("g")
-        .attr("class", "arc");
-
-    arcs.append("path")
+        .append("path")
         .attr("d", arc)
-        .attr("fill", (d, i) => displayData[i].color)
+        .attr("fill", d => d.data.color)
         .attr("stroke", "white")
-        .style("stroke-width", "2px")
-        .append("title")
-        .text(d => `${d.data.label}: ${formatCurrency(d.data.value)} (${(d.data.value / total * 100).toFixed(1)}%)`);
+        .style("stroke-width", "2px");
 
-    const netBalance = totalIncome - totalExpenses;
-    const balanceColor = netBalance >= 0 ? '#10b981' : '#ef4444';
-
+    // Start with static center text (Net)
     svg.append("text")
         .attr("text-anchor", "middle")
-        .attr("dominant-baseline", "middle")
-        .attr("fill", balanceColor)
-        .attr("font-size", "1.1rem")
-        .attr("font-weight", "bold")
+        .attr("dy", "0.3em")
+        .attr("class", "text-sm font-bold fill-current text-primary")
         .text("Net");
 
-    svg.append("text")
-        .attr("text-anchor", "middle")
-        .attr("dominant-baseline", "middle")
-        .attr("fill", balanceColor)
-        .attr("font-size", "0.9rem")
-        .attr("dy", "1.5em")
-        .text(formatCurrency(netBalance));
+    // Add legend
+    if (legendContainer) {
+        displayData.forEach(d => {
+            const item = document.createElement('div');
+            item.className = "flex items-center justify-between text-sm";
+            item.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full" style="background-color: ${d.color}"></span>
+                    <span class="text-primary/70">${d.label}</span>
+                </div>
+                <span class="font-bold text-primary">${formatCurrency(d.value)}</span>
+            `;
+            legendContainer.appendChild(item);
+        });
+    }
 }
 
-/**
- * Displays a temporary message in the form area.
- */
-function showMessage(text, colorClass) {
-    const formMessage = document.getElementById('form-message');
-    formMessage.textContent = text;
-    formMessage.className = `mt-3 text-sm text-center ${colorClass}`;
-    formMessage.classList.remove('hidden');
+// Event Listeners
+if (googleLoginBtn) googleLoginBtn.addEventListener('click', loginWithGoogle);
+if (logoutBtn) logoutBtn.addEventListener('click', logout);
+if (quickAddBtn) quickAddBtn.addEventListener('click', openModal);
+if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+if (modalTypeExpense) modalTypeExpense.addEventListener('click', () => setModalType('expense'));
+if (modalTypeIncome) modalTypeIncome.addEventListener('click', () => setModalType('income'));
+if (saveTransactionBtn) saveTransactionBtn.addEventListener('click', startAddTransaction);
 
-    setTimeout(() => {
-        formMessage.classList.add('hidden');
-    }, 3000);
-}
-
-// --- Event Listeners and Initialization ---
-
-const descriptionInput = document.getElementById('description');
-const amountInput = document.getElementById('amount');
-const incomeBtn = document.getElementById('income-btn');
-const expenseBtn = document.getElementById('expense-btn');
-
-incomeBtn.addEventListener('click', function (e) {
-    e.preventDefault();
-    addTransaction(descriptionInput.value, amountInput.value, 'income');
-});
-
-expenseBtn.addEventListener('click', function (e) {
-    e.preventDefault();
-    addTransaction(descriptionInput.value, amountInput.value, 'expense');
-});
-
-// Auth Listeners
-if (googleLoginBtn) {
-    googleLoginBtn.addEventListener('click', loginWithGoogle);
-}
-
-if (logoutBtn) {
-    logoutBtn.addEventListener('click', logout);
-}
-
-// Initialize the application when the script loads
+// Init
 initializeFirebase();

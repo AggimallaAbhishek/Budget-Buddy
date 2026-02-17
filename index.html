@@ -2,222 +2,377 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Budget Buddy | Personal Finance</title>
-    <!-- Load D3.js -->
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>WealthWise | Personal Finance Dashboard</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet" />
+
+    <!-- D3.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-    <!-- Custom Styles -->
-    <link rel="stylesheet" href="style.css">
-    <!-- Tailwind CSS (Keep for layout if needed, but customized styles take precedence) -->
-    <script src="https://cdn.tailwindcss.com"></script>
+
     <script>
         tailwind.config = {
+            darkMode: "class",
             theme: {
                 extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    },
                     colors: {
-                        primary: '#4f46e5',
-                        secondary: '#64748b',
-                    }
-                }
-            }
+                        "primary": "#1a4231",
+                        "background-light": "#f6f8f7",
+                        "background-dark": "#151d1a",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                },
+            },
         }
     </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
 </head>
 
-<body>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 font-display transition-colors duration-300">
+    <!-- Global Background Grid -->
+    <div class="fixed inset-0 z-0 opacity-[0.04] pointer-events-none">
+        <svg height="100%" width="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <pattern height="40" id="grid" patternunits="userSpaceOnUse" width="40">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" stroke-width="1"></path>
+                </pattern>
+            </defs>
+            <rect fill="url(#grid)" height="100%" width="100%"></rect>
+        </svg>
+    </div>
 
     <!-- Loading View -->
-    <div id="loading-view" class="min-h-screen flex items-center justify-center bg-slate-50">
+    <div id="loading-view" class="fixed inset-0 z-50 flex items-center justify-center bg-background-light">
         <div class="flex flex-col items-center animate-pulse">
-            <h1 class="text-3xl font-bold text-indigo-600 mb-2">Budget Buddy</h1>
-            <p class="text-slate-500 text-sm">Loading...</p>
+            <div class="size-12 bg-primary rounded-xl flex items-center justify-center text-white mb-4">
+                <span class="material-symbols-outlined text-3xl">account_balance_wallet</span>
+            </div>
+            <h1 class="text-2xl font-bold text-primary">WealthWise</h1>
+            <p class="text-primary/60 text-sm mt-2">Loading your dashboard...</p>
         </div>
     </div>
 
-    <!-- Landing View -->
-    <div id="landing-view" class="landing-container hidden">
-        <div class="landing-hero">
-            <h1 class="landing-title">Budget Buddy</h1>
-            <p class="landing-subtitle">Master your finances with simple, intuitive tracking.</p>
+    <!-- LANDING / LOGIN VIEW -->
+    <div id="landing-view" class="min-h-screen flex flex-col relative overflow-hidden hidden">
 
-            <button id="google-login-btn" class="btn btn-google text-lg px-8 py-3">
-                <svg class="w-5 h-5 mr-3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        fill="#4285F4" />
-                    <path
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        fill="#34A853" />
-                    <path
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                        fill="#FBBC05" />
-                    <path
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                        fill="#EA4335" />
-                </svg>
-                Sign in with Google
-            </button>
-            <p id="landing-error" class="text-rose-500 mt-4 text-sm hidden"></p>
-        </div>
-    </div>
 
-    <!-- Dashboard View -->
-    <div id="dashboard-view" class="min-h-screen p-4 sm:p-8 flex justify-center bg-slate-50 hidden">
-        <div class="container">
-
-            <!-- Application Header -->
-            <header class="header">
-                <div>
-                    <h1 class="text-3xl font-bold text-slate-800">Budget Buddy</h1>
-                    <p class="text-slate-500 mt-1">Hello, <span id="user-name"
-                            class="font-semibold text-primary">User</span>! 👋</p>
+        <!-- Navigation -->
+        <header class="relative z-10 w-full px-6 lg:px-40 py-5">
+            <div class="max-w-[1200px] mx-auto flex items-center justify-between">
+                <div class="flex items-center gap-2 text-primary">
+                    <div class="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
+                        <span class="material-symbols-outlined">account_balance_wallet</span>
+                    </div>
+                    <h1 class="text-xl font-bold tracking-tight text-primary">WealthWise</h1>
                 </div>
-                <div class="text-right flex flex-col items-end gap-2">
-                    <button id="logout-btn"
-                        class="text-sm font-medium text-slate-500 hover:text-red-500 transition-colors flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
-                            stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        Logout
-                    </button>
-                    <div id="loading-message" class="text-primary text-xs font-medium hidden animate-pulse">Syncing...
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="relative z-10 flex-1 flex items-center justify-center px-6 py-12">
+            <div
+                class="w-full max-w-[440px] bg-white dark:bg-primary/5 rounded-xl shadow-xl shadow-primary/5 border border-primary/10 p-8 lg:p-10">
+                <!-- Header Section -->
+                <div class="text-center mb-10">
+                    <h2 class="text-2xl lg:text-3xl font-bold text-primary mb-2">Welcome back</h2>
+                    <p class="text-primary/60 text-sm">Sign in to access your dashboard.</p>
+                </div>
+
+                <!-- Google Login Button -->
+                <button id="google-login-btn"
+                    class="w-full bg-white border border-primary/10 hover:bg-primary/5 text-primary py-3.5 px-4 rounded-lg font-bold text-sm transition-all shadow-sm flex items-center justify-center gap-3 mb-6">
+                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5" alt="Google Logo">
+                    <span>Sign in with Google</span>
+                </button>
+
+
+
+                <p id="landing-error" class="text-rose-500 text-center text-sm mt-4 hidden"></p>
+            </div>
+        </main>
+
+        <footer class="relative z-10 py-8 text-center text-primary/30 text-[10px]">
+            © 2024 WealthWise Financial Systems. All rights reserved.
+        </footer>
+    </div>
+
+    <!-- DASHBOARD VIEW -->
+    <div id="dashboard-view" class="relative flex h-auto min-h-screen w-full flex-col overflow-x-hidden hidden">
+        <div class="layout-container flex h-full grow flex-col">
+            <!-- Top Navigation Bar -->
+            <header
+                class="flex items-center justify-between whitespace-nowrap border-b border-solid border-primary/10 bg-white px-6 md:px-10 py-3 sticky top-0 z-50">
+                <div class="flex items-center gap-8">
+                    <div class="flex items-center gap-3 text-primary">
+                        <div class="size-8 bg-primary rounded-lg flex items-center justify-center text-white">
+                            <span class="material-symbols-outlined">account_balance_wallet</span>
+                        </div>
+                        <h2 class="text-primary text-xl font-bold leading-tight tracking-[-0.015em]">WealthWise</h2>
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex gap-2">
+                        <button id="theme-toggle"
+                            class="flex size-10 items-center justify-center rounded-lg bg-primary/5 text-primary hover:bg-primary/10 transition-colors">
+                            <span class="material-symbols-outlined text-[20px]">dark_mode</span>
+                        </button>
+                        <button id="logout-btn"
+                            class="flex h-10 px-4 cursor-pointer items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors text-sm font-bold gap-2">
+                            <span class="material-symbols-outlined text-[20px]">logout</span>
+                            <span class="hidden sm:inline">Logout</span>
+                        </button>
+                    </div>
+                    <div class="h-8 w-px bg-primary/10 mx-2"></div>
+                    <div class="flex items-center gap-3">
+                        <div class="text-right hidden sm:block">
+                            <p id="user-name" class="text-xs font-bold text-primary">User</p>
+                            <p class="text-[10px] text-primary/60 uppercase tracking-wider font-semibold">Premium Member
+                            </p>
+                        </div>
+                        <div
+                            class="bg-primary/10 rounded-full size-10 flex items-center justify-center text-primary font-bold">
+                            <span class="material-symbols-outlined">person</span>
+                        </div>
                     </div>
                 </div>
             </header>
 
-            <!-- Main Content Area -->
-            <main id="main-content" class="space-y-8 fade-in">
+            <main class="flex flex-1 flex-col px-4 md:px-10 py-8 max-w-[1440px] mx-auto w-full gap-8">
+                <!-- Quick Actions & Page Title -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h1 class="text-2xl font-bold text-primary">Financial Dashboard</h1>
+                        <p class="text-primary/60 text-sm">Welcome back! Here's what's happening with your money.</p>
+                    </div>
+                    <button id="quick-add-btn"
+                        class="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-primary/20">
+                        <span class="material-symbols-outlined text-[20px]">add</span>
+                        Quick Add Transaction
+                    </button>
+                </div>
 
-                <!-- KPI Cards -->
+                <!-- Summary Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- Balance -->
-                    <div class="card stat-card border-l-4 border-indigo-500">
-                        <p class="stat-label">Current Balance</p>
-                        <p id="total-balance" class="stat-value text-slate-800">₹0.00</p>
+                    <div class="flex flex-col gap-4 rounded-xl p-6 bg-white border border-primary/5 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div
+                                class="size-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                <span class="material-symbols-outlined">account_balance</span>
+                            </div>
+                            <span
+                                class="text-xs font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700">Live</span>
+                        </div>
+                        <div>
+                            <p class="text-primary/60 text-sm font-medium">Total Balance</p>
+                            <p id="total-balance" class="text-primary text-3xl font-bold leading-tight">₹0.00</p>
+                        </div>
+                        <div class="h-1 w-full bg-primary/5 rounded-full overflow-hidden">
+                            <div class="h-full bg-primary w-full"></div>
+                        </div>
                     </div>
 
                     <!-- Income -->
-                    <div class="card stat-card border-l-4 border-emerald-500">
-                        <p class="stat-label">Total Income</p>
-                        <p id="total-income" class="stat-value text-emerald-600">₹0.00</p>
+                    <div class="flex flex-col gap-4 rounded-xl p-6 bg-white border border-primary/5 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div
+                                class="size-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
+                                <span class="material-symbols-outlined text-[20px]">trending_up</span>
+                            </div>
+                            <span
+                                class="text-xs font-bold px-2 py-1 rounded bg-emerald-100 text-emerald-700">Income</span>
+                        </div>
+                        <div>
+                            <p class="text-primary/60 text-sm font-medium">Total Income</p>
+                            <p id="total-income" class="text-primary text-3xl font-bold leading-tight">₹0.00</p>
+                        </div>
                     </div>
 
                     <!-- Expenses -->
-                    <div class="card stat-card border-l-4 border-rose-500">
-                        <p class="stat-label">Total Expenses</p>
-                        <p id="total-expenses" class="stat-value text-rose-600">₹0.00</p>
+                    <div class="flex flex-col gap-4 rounded-xl p-6 bg-white border border-primary/5 shadow-sm">
+                        <div class="flex items-center justify-between">
+                            <div
+                                class="size-10 rounded-full bg-rose-100 flex items-center justify-center text-rose-700">
+                                <span class="material-symbols-outlined text-[20px]">trending_down</span>
+                            </div>
+                            <span class="text-xs font-bold px-2 py-1 rounded bg-rose-100 text-rose-700">Expense</span>
+                        </div>
+                        <div>
+                            <p class="text-primary/60 text-sm font-medium">Total Expenses</p>
+                            <p id="total-expenses" class="text-primary text-3xl font-bold leading-tight">₹0.00</p>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Charts & Input Section -->
+                <!-- Charts & Analytics -->
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Expense Breakdown (Using D3 Pie Chart here instead) -->
+                    <div class="lg:col-span-1 rounded-xl bg-white border border-primary/5 p-6 shadow-sm">
+                        <h3 class="text-lg font-bold text-primary mb-6">Expense Breakdown</h3>
+                        <!-- We will reuse the D3 Pie Chart logic here -->
+                        <div id="pie-chart" class="flex justify-center items-center w-full min-h-[250px]"></div>
+                        <!-- Legend container -->
+                        <div id="chart-legend" class="mt-4 flex flex-col gap-2"></div>
+                    </div>
 
-                    <!-- Visualization -->
-                    <section
-                        class="card lg:col-span-1 flex flex-col items-center justify-center relative overflow-hidden">
-                        <h2 class="text-lg font-semibold text-slate-700 w-full mb-4">Overview</h2>
-                        <div id="pie-chart" class="flex justify-center items-center w-full h-64">
-                            <!-- D3 Chart -->
-                        </div>
-                        <div id="chart-legend" class="mt-6 flex flex-wrap justify-center gap-4 text-sm">
-                            <div class="flex items-center">
-                                <span class="w-3 h-3 rounded-full bg-emerald-500 mr-2"></span>
-                                <span class="text-slate-600">Income</span>
-                            </div>
-                            <div class="flex items-center">
-                                <span class="w-3 h-3 rounded-full bg-rose-500 mr-2"></span>
-                                <span class="text-slate-600">Expense</span>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- Transaction Input -->
-                    <section class="card lg:col-span-2">
-                        <h2 class="text-lg font-semibold text-slate-700 mb-6">Add Transaction</h2>
-                        <div id="transaction-input-area" class="space-y-6">
-
-                            <div class="grid grid-cols-1 gap-4">
-                                <!-- Description -->
-                                <div class="form-group">
-                                    <label
-                                        class="text-xs uppercase font-bold text-slate-400 tracking-wider">Description</label>
-                                    <input type="text" id="description"
-                                        placeholder="e.g. Monthly Rent, Freelance Project" class="input-field" required>
-                                </div>
-
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <!-- Amount -->
-                                    <div class="form-group">
-                                        <label
-                                            class="text-xs uppercase font-bold text-slate-400 tracking-wider">Amount</label>
-                                        <input type="number" id="amount" placeholder="0.00" step="0.01"
-                                            class="input-field" required>
-                                    </div>
-
-                                    <!-- Action Buttons -->
-                                    <div class="flex items-end gap-3">
-                                        <button type="button" id="income-btn" class="btn btn-success w-full">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
-                                                fill="currentColor">
-                                                <path fill-rule="evenodd"
-                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z"
-                                                    clip-rule="evenodd" />
-                                            </svg>
-                                            Income
-                                        </button>
-                                        <button type="button" id="expense-btn" class="btn btn-danger w-full">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20"
-                                                fill="currentColor">
-                                                <path fill-rule="evenodd"
-                                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z"
-                                                    clip-rule="evenodd" />
-                                            </svg>
-                                            Expense
-                                        </button>
-                                    </div>
-                                </div>
+                    <!-- Trends (Placeholder for now, or just the transactions list for now) -->
+                    <div class="lg:col-span-2 rounded-xl bg-white border border-primary/5 p-6 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-lg font-bold text-primary">Recent Transactions</h3>
+                            <div class="flex gap-2">
+                                <button class="p-2 bg-primary/5 text-primary rounded-lg hover:bg-primary/10">
+                                    <span class="material-symbols-outlined text-[18px]">filter_list</span>
+                                </button>
                             </div>
                         </div>
-                        <p id="form-message" class="mt-4 text-sm text-center hidden"></p>
-                    </section>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr
+                                        class="bg-primary/5 text-[11px] uppercase tracking-wider font-bold text-primary/60">
+                                        <th class="px-6 py-4">Transaction</th>
+                                        <th class="px-6 py-4">Category</th>
+                                        <th class="px-6 py-4">Date</th>
+                                        <th class="px-6 py-4">Status</th>
+                                        <th class="px-6 py-4 text-right">Amount</th>
+                                        <th class="px-6 py-4"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transaction-list" class="divide-y divide-primary/5">
+                                    <!-- JS will inject rows here -->
+                                </tbody>
+                            </table>
+                            <div id="empty-state" class="hidden py-8 text-center text-primary/50 text-sm">
+                                No transactions found. Add one to get started!
+                            </div>
+                        </div>
+                    </div>
                 </div>
+            </main>
 
-                <!-- Transaction History -->
-                <section>
-                    <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-bold text-slate-800">Recent Transactions</h2>
-                        <span class="text-sm text-slate-400">Latest activity</span>
+            <!-- Modal Backdrop (Hidden by default) -->
+            <div id="transaction-modal"
+                class="hidden fixed inset-0 bg-primary/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                <div
+                    class="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden scale-100 transition-transform">
+                    <div class="p-6 border-b border-primary/10 flex justify-between items-center bg-background-light">
+                        <h3 class="text-xl font-bold text-primary flex items-center gap-2">
+                            <span class="material-symbols-outlined">add_circle</span>
+                            Add Transaction
+                        </h3>
+                        <button id="close-modal-btn" class="text-primary/40 hover:text-primary transition-colors">
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
                     </div>
 
-                    <div class="transaction-list-container">
-                        <!-- Table Header -->
-                        <div class="transaction-list-header">
-                            <div>Date</div>
-                            <div>Time</div>
-                            <div>Description</div>
-                            <div class="text-right">Credit</div>
-                            <div class="text-right">Debit</div>
-                            <div></div>
+                    <div class="p-6 space-y-4">
+                        <!-- Transaction Type Toggle -->
+                        <div class="flex gap-4 p-1 bg-primary/5 rounded-xl">
+                            <button type="button" id="modal-type-expense"
+                                class="flex-1 py-2.5 rounded-lg font-bold text-sm transition-all bg-white text-rose-600 shadow-sm ring-1 ring-black/5">
+                                Expense
+                            </button>
+                            <button type="button" id="modal-type-income"
+                                class="flex-1 py-2.5 rounded-lg font-bold text-sm text-primary/60 hover:text-emerald-600 transition-all">
+                                Income
+                            </button>
                         </div>
 
-                        <!-- List Body -->
-                        <ul id="transaction-list" class="transaction-list divide-y divide-slate-100">
-                            <!-- Rendered Items -->
-                        </ul>
-                    </div>
-                </section>
+                        <div>
+                            <label class="block text-xs font-bold text-primary/60 uppercase mb-1.5">Amount</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-primary">₹</span>
+                                <input id="modal-amount"
+                                    class="w-full bg-primary/5 border-none rounded-xl py-3 pl-8 font-bold text-primary focus:ring-2 focus:ring-primary/20 placeholder:text-primary/30"
+                                    placeholder="0.00" type="number" step="0.01" />
+                            </div>
+                        </div>
 
-            </main>
+
+                        <div>
+                            <label class="block text-xs font-bold text-primary/60 uppercase mb-1.5">Category</label>
+                            <select id="modal-category"
+                                class="w-full bg-primary/5 border-none rounded-xl py-3 px-4 font-medium text-primary focus:ring-2 focus:ring-primary/20 cursor-pointer">
+                                <option value="Food & Dining">Food & Dining</option>
+                                <option value="Shopping">Shopping</option>
+                                <option value="Housing">Housing</option>
+                                <option value="Transportation">Transportation</option>
+                                <option value="Entertainment">Entertainment</option>
+                                <option value="Health & Fitness">Health & Fitness</option>
+                                <option value="Medical">Medical</option>
+                                <option value="Personal Care">Personal Care</option>
+                                <option value="Education">Education</option>
+                                <option value="Travel">Travel</option>
+                                <option value="Investments">Investments</option>
+                                <option value="Income">Income</option>
+                                <option value="Others">Others</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-primary/60 uppercase mb-1.5">Description</label>
+                            <input id="modal-description"
+                                class="w-full bg-primary/5 border-none rounded-xl py-3 px-4 font-medium text-primary focus:ring-2 focus:ring-primary/20 placeholder:text-primary/30"
+                                placeholder="e.g. Grocery Shopping" type="text" />
+                        </div>
+
+                        <div id="modal-message" class="text-center text-sm font-medium hidden"></div>
+
+                        <button id="save-transaction-btn"
+                            class="w-full bg-primary text-white py-4 rounded-xl font-bold mt-4 shadow-lg shadow-primary/20 hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                            <span>Save Transaction</span>
+                            <span class="material-symbols-outlined text-sm">check</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="mt-auto px-10 py-8 border-t border-primary/5 text-center">
+                <p class="text-primary/40 text-xs font-medium">© 2024 WealthWise Financial Services.</p>
+            </footer>
         </div>
     </div>
 
+    <!-- Fallback Script -->
     <script type="module" src="script.js"></script>
+    <script>
+        // Fallback: If the app doesn't load in 10 seconds, show an error.
+        setTimeout(() => {
+            const loadingView = document.getElementById('loading-view');
+            if (loadingView && !loadingView.classList.contains('hidden')) {
+                const message = loadingView.querySelector('p');
+                if (message) {
+                    message.textContent = "Taking longer than usual... Please check your connection.";
+                    message.classList.add('text-rose-500');
+                }
+                // Optional: Show a reload button
+                const btn = document.createElement('button');
+                btn.textContent = "Reload Page";
+                btn.className = "mt-4 px-4 py-2 bg-primary text-white rounded hover:opacity-90 transition";
+                btn.onclick = () => window.location.reload();
+                loadingView.querySelector('.flex').appendChild(btn);
+            }
+        }, 10000);
+    </script>
 </body>
 
 </html>
